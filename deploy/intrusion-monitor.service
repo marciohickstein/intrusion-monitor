@@ -1,0 +1,26 @@
+[Unit]
+Description=intrusion-monitor (painel de tentativas de ataque)
+After=network.target
+
+[Service]
+Type=simple
+User=monitor
+Group=monitor
+WorkingDirectory=/opt/intrusion-monitor
+EnvironmentFile=/etc/intrusion-monitor.env
+ExecStart=/usr/local/bin/intrusion-monitor-node server.js
+Restart=on-failure
+RestartSec=5
+
+# Endurecimento (o app precisa de sudo, entao NoNewPrivileges fica desligado)
+ProtectSystem=full
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+LockPersonality=yes
+
+[Install]
+WantedBy=multi-user.target

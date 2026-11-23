@@ -1,0 +1,16 @@
+<%# Tabela de contagem: rows = [{ key, count }] %>
+<% if (!rows || rows.length === 0) { %>
+  <p class="empty">Nada registrado.</p>
+<% } else { const max = rows[0].count; %>
+  <table class="rank">
+    <thead><tr><th><%= label %></th><th class="num">Qtd</th></tr></thead>
+    <tbody>
+    <% rows.forEach(function (r) { %>
+      <tr>
+        <td><code><%= r.key %></code><span class="bar" style="--w: <%= Math.max(2, Math.round(r.count / max * 100)) %>%"></span></td>
+        <td class="num"><%= r.count %></td>
+      </tr>
+    <% }) %>
+    </tbody>
+  </table>
+<% } %>

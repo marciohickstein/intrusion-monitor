@@ -1,0 +1,12 @@
+<%- include('partials/head', { title: 'Entrar' }) %>
+<main class="login">
+  <form method="post" action="/login" class="card login-card" autocomplete="on">
+    <h1>intrusion-monitor</h1>
+    <p class="muted">Acesso restrito</p>
+    <% if (error) { %><div class="alert"><%= error %></div><% } %>
+    <label>Usuário <input name="username" autocomplete="username" required autofocus></label>
+    <label>Senha <input name="password" type="password" autocomplete="current-password" required></label>
+    <button type="submit">Entrar</button>
+  </form>
+</main>
+<%- include('partials/foot') %>

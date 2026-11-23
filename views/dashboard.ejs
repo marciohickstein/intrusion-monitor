@@ -1,0 +1,172 @@
+<%- include('partials/head', { title: 'Painel' }) %>
+<%
+  const { ssh, fail2ban, ufw, nginx } = data;
+  const fmt = (iso) => iso ? new Date(iso).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }) : '-';
+%>
+<header class="top">
+  <div class="brand">intrusion-monitor</div>
+  <nav>
+    <a href="#ssh">SSH</a><a href="#fail2ban">fail2ban</a><a href="#ufw">ufw</a><a href="#nginx">nginx</a>
+  </nav>
+  <div class="actions">
+    <span class="muted small">Coletado <%= fmt(data.collectedAt) %></span>
+    <a class="btn" href="/?refresh=1">Atualizar</a>
+    <form method="post" action="/logout"><button class="btn ghost" type="submit">Sair</button></form>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="kpis">
+    <div class="kpi"><span class="kpi-v"><%= ssh.ok ? ssh.totals.failed + ssh.totals.invalid + ssh.totals.preauth : '—' %></span><span class="kpi-l">eventos SSH suspeitos</span></div>
+    <div class="kpi"><span class="kpi-v"><%= fail2ban.status && fail2ban.status.ok ? fail2ban.status.currentlyBanned : '—' %></span><span class="kpi-l">IPs banidos agora</span></div>
+    <div class="kpi"><span class="kpi-v"><%= ufw.ok ? ufw.total : '—' %></span><span class="kpi-l">pacotes bloqueados (ufw)</span></div>
+    <div class="kpi"><span class="kpi-v"><%= nginx.access && nginx.access.ok ? nginx.access.suspiciousTotal : '—' %></span><span class="kpi-l">requisições web suspeitas</span></div>
+  </section>
+
+  <!-- 1. SSH -->
+  <section id="ssh" class="card">
+    <h2>1 · SSH <span class="muted small">desde "<%= ssh.since %>"</span></h2>
+    <% if (!ssh.ok) { %>
+      <%- include('partials/error', { message: ssh.error }) %>
+    <% } else { %>
+      <div class="chips">
+        <span class="chip">Falhas de senha/chave: <b><%= ssh.totals.failed %></b></span>
+        <span class="chip">Usuário inválido: <b><%= ssh.totals.invalid %></b></span>
+        <span class="chip">Desconectados pré-auth: <b><%= ssh.totals.preauth %></b></span>
+        <span class="chip ok">Logins aceitos: <b><%= ssh.totals.accepted %></b></span>
+      </div>
+      <h3>Logins aceitos <span class="muted small">confira se todos foram você ou o deploy</span></h3>
+      <% if (ssh.accepted.length === 0) { %><p class="empty">Nenhum.</p><% } else { %>
+      <div class="scroll"><table>
+        <thead><tr><th>Quando</th><th>Usuário</th><th>IP</th><th>Método</th></tr></thead>
+        <tbody><% ssh.accepted.forEach(function (e) { %>
+          <tr><td><%= fmt(e.time) %></td><td><code><%= e.user %></code></td><td><code><%= e.ip %></code></td><td><%= e.method %></td></tr>
+        <% }) %></tbody>
+      </table></div>
+      <% } %>
+      <div class="grid2">
+        <div><h3>Top IPs atacando</h3><%- include('partials/table', { rows: ssh.topIps, label: 'IP' }) %></div>
+        <div><h3>Usuários tentados</h3><%- include('partials/table', { rows: ssh.topUsers, label: 'Usuário' }) %></div>
+      </div>
+      <details>
+        <summary>Últimos 50 eventos suspeitos</summary>
+        <div class="scroll"><table>
+          <thead><tr><th>Quando</th><th>Tipo</th><th>Usuário</th><th>IP</th></tr></thead>
+          <tbody><% ssh.recent.forEach(function (e) { %>
+            <tr><td><%= fmt(e.time) %></td><td><%= e.type %></td><td><code><%= e.user %></code></td><td><code><%= e.ip %></code></td></tr>
+          <% }) %></tbody>
+        </table></div>
+      </details>
+    <% } %>
+    <details>
+      <summary>Comando <code>last</code> (últimas sessões)</summary>
+      <% if (ssh.lastError) { %><%- include('partials/error', { message: ssh.lastError }) %><% } %>
+      <pre><%= (ssh.last || []).join('\n') || 'sem dados' %></pre>
+    </details>
+  </section>
+
+  <!-- 2. fail2ban -->
+  <section id="fail2ban" class="card">
+    <h2>2 · fail2ban <span class="muted small">jail <%= fail2ban.jail %></span></h2>
+    <% if (!fail2ban.status) { %>
+      <%- include('partials/error', { message: fail2ban.error }) %>
+    <% } else { %>
+      <% if (!fail2ban.status.ok) { %>
+        <%- include('partials/error', { message: fail2ban.status.error }) %>
+      <% } else { const s = fail2ban.status; %>
+        <div class="chips">
+          <span class="chip">Falhando agora: <b><%= s.currentlyFailed %></b></span>
+          <span class="chip">Total de falhas: <b><%= s.totalFailed %></b></span>
+          <span class="chip warn">Banidos agora: <b><%= s.currentlyBanned %></b></span>
+          <span class="chip">Total banidos: <b><%= s.totalBanned %></b></span>
+        </div>
+        <% if (s.bannedIps.length) { %>
+          <h3>IPs banidos</h3>
+          <p class="ips"><% s.bannedIps.forEach(function (ip) { %><code><%= ip %></code> <% }) %></p>
+        <% } %>
+      <% } %>
+      <% if (!fail2ban.log.ok) { %>
+        <%- include('partials/error', { message: fail2ban.log.error }) %>
+      <% } else { %>
+        <h3>Últimos bans/unbans</h3>
+        <% if (fail2ban.log.bans.length === 0) { %><p class="empty">Nenhum.</p><% } else { %>
+        <div class="scroll"><table>
+          <thead><tr><th>Quando</th><th>Jail</th><th>Ação</th><th>IP</th></tr></thead>
+          <tbody><% fail2ban.log.bans.forEach(function (e) { %>
+            <tr><td><%= e.time %></td><td><%= e.jail %></td><td><%= e.action %></td><td><code><%= e.ip %></code></td></tr>
+          <% }) %></tbody>
+        </table></div>
+        <% } %>
+      <% } %>
+    <% } %>
+  </section>
+
+  <!-- 3. ufw -->
+  <section id="ufw" class="card">
+    <h2>3 · ufw <span class="muted small"><%= ufw.source || '' %><%= ufw.truncated ? ' · fim do arquivo' : '' %></span></h2>
+    <p class="muted small">O Cloud Firewall da DigitalOcean descarta o tráfego antes do droplet; aqui aparece só o que passou por ele.</p>
+    <% if (!ufw.ok) { %>
+      <%- include('partials/error', { message: ufw.error }) %>
+    <% } else { %>
+      <div class="grid2">
+        <div><h3>Top origens bloqueadas</h3><%- include('partials/table', { rows: ufw.topSrc, label: 'IP' }) %></div>
+        <div><h3>Portas mais visadas</h3><%- include('partials/table', { rows: ufw.topPorts, label: 'Porta' }) %></div>
+      </div>
+      <details>
+        <summary>Últimos 50 bloqueios</summary>
+        <div class="scroll"><table>
+          <thead><tr><th>Quando</th><th>Origem</th><th>Proto</th><th>Porta</th></tr></thead>
+          <tbody><% ufw.recent.forEach(function (e) { %>
+            <tr><td><%= e.time %></td><td><code><%= e.src %></code></td><td><%= e.proto %></td><td><%= e.dpt || '-' %></td></tr>
+          <% }) %></tbody>
+        </table></div>
+      </details>
+    <% } %>
+  </section>
+
+  <!-- 4. nginx -->
+  <section id="nginx" class="card">
+    <h2>4 · nginx</h2>
+    <% if (!nginx.access) { %>
+      <%- include('partials/error', { message: nginx.error }) %>
+    <% } else { %>
+      <h3>Access log do host <span class="muted small"><%= nginx.access.source || '' %><%= nginx.access.truncated ? ' · fim do arquivo' : '' %></span></h3>
+      <% if (!nginx.access.ok) { %>
+        <%- include('partials/error', { message: nginx.access.error }) %>
+      <% } else { const a = nginx.access; %>
+        <div class="chips">
+          <span class="chip">Requisições: <b><%= a.total %></b></span>
+          <% Object.keys(a.statusCounts).sort().forEach(function (k) { %>
+            <span class="chip <%= k === '4xx' || k === '5xx' ? 'warn' : '' %>"><%= k %>: <b><%= a.statusCounts[k] %></b></span>
+          <% }) %>
+          <span class="chip warn">Suspeitas: <b><%= a.suspiciousTotal %></b></span>
+        </div>
+        <div class="grid2">
+          <div><h3>IPs com scans suspeitos</h3><%- include('partials/table', { rows: a.suspiciousByIp, label: 'IP' }) %></div>
+          <div><h3>IPs com mais erros 4xx/5xx</h3><%- include('partials/table', { rows: a.errorsByIp, label: 'IP' }) %></div>
+        </div>
+        <details>
+          <summary>Últimas 50 requisições suspeitas</summary>
+          <div class="scroll"><table>
+            <thead><tr><th>Quando</th><th>IP</th><th>Status</th><th>Requisição</th></tr></thead>
+            <tbody><% a.suspicious.forEach(function (e) { %>
+              <tr><td><%= e.time %></td><td><code><%= e.ip %></code></td><td><%= e.status %></td><td class="req"><code><%= e.request %></code></td></tr>
+            <% }) %></tbody>
+          </table></div>
+        </details>
+      <% } %>
+
+      <h3>Rate limit do hash-generator <span class="muted small">container <%= nginx.rateLimit.container %> · últimas 24h</span></h3>
+      <% if (!nginx.rateLimit.ok) { %>
+        <%- include('partials/error', { message: nginx.rateLimit.error }) %>
+      <% } else { const r = nginx.rateLimit; %>
+        <div class="chips">
+          <span class="chip warn">Respostas 429: <b><%= r.count429 %></b></span>
+          <span class="chip">Avisos "limiting requests": <b><%= r.limitingCount %></b></span>
+        </div>
+        <%- include('partials/table', { rows: r.byIp, label: 'IP (visto pelo container)' }) %>
+      <% } %>
+    <% } %>
+  </section>
+</main>
+<%- include('partials/foot') %>
