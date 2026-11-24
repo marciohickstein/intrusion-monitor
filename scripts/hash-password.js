@@ -4,9 +4,9 @@ const readline = require('node:readline');
 
 function ask(prompt) {
   return new Promise((resolve) => {
-    const rl = readline.createInterface({ input: process.stdin, output: process.stdout, terminal: true });
+    const rl = readline.createInterface({ input: process.stdin, output: process.stderr, terminal: true });
     rl._writeToOutput = (s) => { if (s.includes(prompt)) rl.output.write(s); };
-    rl.question(prompt, (answer) => { rl.close(); process.stdout.write('\n'); resolve(answer); });
+    rl.question(prompt, (answer) => { rl.close(); process.stderr.write('\n'); resolve(answer); });
   });
 }
 
