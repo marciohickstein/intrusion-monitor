@@ -16,7 +16,11 @@ function createApp(config, { collectAll = createCollector(config) } = {}) {
   app.set('trust proxy', 1); // atras do nginx do host
   app.disable('x-powered-by');
 
-  app.use(helmet());
+  app.use(helmet({
+    // "no-referrer" (padrao do helmet) faz o navegador mandar Origin: null ate em
+    // POSTs do proprio site; "same-origin" mantem a origem real em requisicoes internas.
+    referrerPolicy: { policy: 'same-origin' },
+  }));
   app.use(express.static(path.join(__dirname, '..', 'public'), { maxAge: '1h' }));
   app.use(express.urlencoded({ extended: false, limit: '10kb' }));
   app.use(session({

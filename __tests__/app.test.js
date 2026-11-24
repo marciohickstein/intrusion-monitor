@@ -62,3 +62,19 @@ test('rejeita POST de outra origem', async () => {
   await request(makeApp()).post('/login').set('Origin', 'https://evil.example').type('form')
     .send({ username: 'admin', password: 'senha-de-teste-123' }).expect(403);
 });
+
+test('aceita POST da mesma origem (navegador real envia Origin)', async () => {
+  const agent = request.agent(makeApp());
+  await agent.post('/login').set('Host', 'monitor.exemplo.com').set('Origin', 'https://monitor.exemplo.com')
+    .type('form').send({ username: 'admin', password: 'senha-de-teste-123' }).expect(302).expect('Location', '/');
+});
+
+test('rejeita Origin null (iframe sandbox de outro site)', async () => {
+  await request(makeApp()).post('/login').set('Origin', 'null').type('form')
+    .send({ username: 'admin', password: 'senha-de-teste-123' }).expect(403);
+});
+
+test('Referrer-Policy same-origin', async () => {
+  const res = await request(makeApp()).get('/login');
+  expect(res.headers['referrer-policy']).toBe('same-origin');
+});
