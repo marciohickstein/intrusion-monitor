@@ -41,7 +41,7 @@ REPO_URL=git@github.com:USUARIO/intrusion-monitor.git DOMAIN=monitor.seudominio.
 
 1. Na primeira execução, o script mostra a **Deploy key**. Cadastre-a em *GitHub › repo › Settings › Deploy keys* como somente leitura e rode o script de novo.
 2. Ao final, o script pede o usuário e a senha do painel (mínimo 12 caracteres), mostra a **chave privada do Actions** e o **fingerprint** do servidor.
-3. Ative o HTTPS: `certbot --nginx -d monitor.seudominio.com`. Antes, crie o registro DNS `A` apontando para o droplet.
+3. Crie antes o registro DNS `A` de `monitor` apontando para o droplet: o script roda `certbot --nginx` sozinho (mesmo esquema dos outros sites). Se falhar, rode depois `certbot --nginx -d <DOMAIN>`.
 4. Se o `sshd_config` tiver `AllowUsers`, inclua `monitor`.
 5. Apague a chave privada do servidor: `shred -u /root/intrusion-monitor-actions-key*`.
 

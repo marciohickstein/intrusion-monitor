@@ -120,13 +120,23 @@ ln -sf /etc/nginx/sites-available/intrusion-monitor /etc/nginx/sites-enabled/int
 nginx -t
 systemctl reload nginx
 
+step "HTTPS (certbot, mesmo esquema dos outros sites do servidor)"
+if grep -q "listen 443" /etc/nginx/sites-available/intrusion-monitor; then
+  echo "HTTPS ja configurado."
+elif command -v certbot >/dev/null; then
+  # Adiciona o bloco 443 com o certificado e o redirect 80 -> 443 no proprio arquivo do site
+  certbot --nginx -d "$DOMAIN" --non-interactive --redirect \
+    || echo "!! certbot falhou (DNS de $DOMAIN aponta para este servidor?). Rode depois: certbot --nginx -d $DOMAIN"
+else
+  echo "!! certbot nao instalado: apt install -y certbot python3-certbot-nginx && certbot --nginx -d $DOMAIN"
+fi
+
 step "Pronto"
 sleep 2
 curl -fsS http://127.0.0.1:3100/healthz && echo " <- healthz"
 echo
 echo "Proximos passos:"
-echo " 1. HTTPS (obrigatorio, o cookie de sessao so funciona em HTTPS):"
-echo "      certbot --nginx -d $DOMAIN"
+echo " 1. Acesse: https://$DOMAIN"
 echo " 2. Se o sshd tiver AllowUsers, inclua: $APP_USER"
 if [ "${NEW_ACTIONS_KEY:-0}" = 1 ]; then
   echo " 3. Copie a chave PRIVADA abaixo para o secret SERVER_SSH_KEY no GitHub e depois apague:"
